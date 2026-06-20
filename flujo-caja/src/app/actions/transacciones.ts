@@ -2,12 +2,27 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { transacciones } from "@/db/schema";
+import { transacciones, config } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAdmin, RespuestaError } from "@/lib/auth";
 import { registrarAuditoria } from "@/lib/audit";
 import { transaccionSchema } from "@/lib/validations";
 import { calcularMontoCop } from "@/lib/money";
+
+// Reglas de captura configurables (requerir comprobante / cliente en ingresos).
+async function validarReglasCaptura(
+  d: { tipo: string; clienteId?: string | null; comprobanteUrl?: string | null },
+): Promise<string | null> {
+  const [cfg] = await db.select().from(config).where(eq(config.id, 1)).limit(1);
+  if (!cfg) return null;
+  if (cfg.requerirComprobante && !d.comprobanteUrl) {
+    return "La configuración exige adjuntar un comprobante.";
+  }
+  if (cfg.requerirClienteIngresos && d.tipo === "ingreso" && !d.clienteId) {
+    return "La configuración exige asociar un cliente a los ingresos.";
+  }
+  return null;
+}
 
 export interface ActionResult {
   ok: boolean;
@@ -42,6 +57,10 @@ export async function crearTransaccion(formData: FormData): Promise<ActionResult
       return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
     }
     const d = parsed.data;
+
+    const errorReglas = await validarReglasCaptura(d);
+    if (errorReglas) return { ok: false, error: errorReglas };
+
     const montoCop = calcularMontoCop(d.montoOriginal, d.moneda, d.tasaCambio);
 
     const [creada] = await db
@@ -99,6 +118,9 @@ export async function editarTransaccion(
     if (!antes || antes.estado === "eliminada") {
       return { ok: false, error: "Transacción no encontrada" };
     }
+
+    const errorReglas = await validarReglasCaptura(d);
+    if (errorReglas) return { ok: false, error: errorReglas };
 
     const montoCop = calcularMontoCop(d.montoOriginal, d.moneda, d.tasaCambio);
     await db

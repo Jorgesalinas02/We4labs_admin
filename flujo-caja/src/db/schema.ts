@@ -117,6 +117,7 @@ export const transacciones = pgTable("transacciones", {
 // ---------------------------------------------------------------------------
 export const config = pgTable("config", {
   id: integer("id").primaryKey().default(1),
+  // --- Saldo / alertas ---
   saldoInicialCop: numeric("saldo_inicial_cop", { precision: 15, scale: 2 })
     .notNull()
     .default("0"),
@@ -124,6 +125,17 @@ export const config = pgTable("config", {
   umbralAlertaCop: numeric("umbral_alerta_cop", { precision: 15, scale: 2 })
     .notNull()
     .default("0"),
+  // --- Preferencias del formulario de transacciones ---
+  monedaPorDefecto: monedaEnum("moneda_por_defecto").notNull().default("COP"),
+  // Tasa USD→COP sugerida para prellenar el formulario (editable por transacción).
+  tasaCambioSugerida: numeric("tasa_cambio_sugerida", { precision: 12, scale: 4 }),
+  // --- Reglas de captura ---
+  requerirComprobante: boolean("requerir_comprobante").notNull().default(false),
+  requerirClienteIngresos: boolean("requerir_cliente_ingresos")
+    .notNull()
+    .default(false),
+  // Días sin registrar transacciones tras los que se recordará (0 = sin recordatorio).
+  diasAlertaInactividad: integer("dias_alerta_inactividad").notNull().default(0),
   zonaHoraria: text("zona_horaria").notNull().default("America/Bogota"),
 });
 

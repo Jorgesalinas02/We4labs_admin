@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { obtenerUsuarioActual } from "@/lib/auth";
-import { listarCategorias, listarClientes } from "@/lib/queries";
+import { listarCategorias, listarClientes, obtenerConfig } from "@/lib/queries";
 import { hoyISO } from "@/lib/dates";
 import { TransaccionForm } from "@/components/TransaccionForm";
 
@@ -10,9 +10,10 @@ export default async function NuevaTransaccionPage() {
   const usuario = await obtenerUsuarioActual();
   if (usuario?.rol !== "admin") redirect("/");
 
-  const [categorias, clientes] = await Promise.all([
+  const [categorias, clientes, cfg] = await Promise.all([
     listarCategorias(),
     listarClientes(),
+    obtenerConfig(),
   ]);
 
   return (
@@ -22,6 +23,12 @@ export default async function NuevaTransaccionPage() {
         categorias={categorias}
         clientes={clientes.filter((c) => c.estado === "activo")}
         hoy={hoyISO()}
+        prefs={{
+          monedaPorDefecto: cfg.monedaPorDefecto,
+          tasaCambioSugerida: cfg.tasaCambioSugerida,
+          requerirComprobante: cfg.requerirComprobante,
+          requerirClienteIngresos: cfg.requerirClienteIngresos,
+        }}
       />
     </div>
   );

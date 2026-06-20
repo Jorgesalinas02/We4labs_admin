@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./load-env";
 import { db } from "./index";
 import { categorias, config } from "./schema";
 import { categoriasPredefinidas } from "./seed-data";

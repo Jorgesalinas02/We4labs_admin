@@ -40,6 +40,11 @@ export const configSchema = z.object({
     .optional()
     .nullable(),
   umbralAlertaCop: z.coerce.number().finite().nonnegative(),
+  monedaPorDefecto: z.enum(["COP", "USD"]).default("COP"),
+  tasaCambioSugerida: z.coerce.number().positive().finite().optional().nullable(),
+  requerirComprobante: z.boolean().default(false),
+  requerirClienteIngresos: z.boolean().default(false),
+  diasAlertaInactividad: z.coerce.number().int().nonnegative().default(0),
 });
 
 export type ConfigInput = z.infer<typeof configSchema>;

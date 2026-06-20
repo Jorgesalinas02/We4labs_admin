@@ -6,12 +6,14 @@ import {
   config,
 } from "@/db/schema";
 import { and, eq, gte, lte, sql, desc } from "drizzle-orm";
+import { cache } from "react";
 import { rangoMesActual, rangoMesAnterior, type RangoFechas } from "./dates";
 
 // Todas las sumas se hacen sobre monto_cop (normalizado) y solo transacciones activas.
 const soloActivas = eq(transacciones.estado, "activa");
 
-async function obtenerConfig() {
+// cache() dedupe la lectura de config dentro de una misma request.
+const obtenerConfig = cache(async () => {
   const filas = await db.select().from(config).where(eq(config.id, 1)).limit(1);
   return (
     filas[0] ?? {
@@ -19,10 +21,15 @@ async function obtenerConfig() {
       saldoInicialCop: "0",
       saldoInicialFecha: null,
       umbralAlertaCop: "0",
+      monedaPorDefecto: "COP" as const,
+      tasaCambioSugerida: null,
+      requerirComprobante: false,
+      requerirClienteIngresos: false,
+      diasAlertaInactividad: 0,
       zonaHoraria: "America/Bogota",
     }
   );
-}
+});
 
 /** Suma de monto_cop por tipo en un rango (inclusive). */
 async function sumarPorTipo(rango?: RangoFechas) {

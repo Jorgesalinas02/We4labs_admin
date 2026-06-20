@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { transacciones } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { obtenerUsuarioActual } from "@/lib/auth";
-import { listarCategorias, listarClientes } from "@/lib/queries";
+import { listarCategorias, listarClientes, obtenerConfig } from "@/lib/queries";
 import { hoyISO } from "@/lib/dates";
 import { TransaccionForm } from "@/components/TransaccionForm";
 import { EliminarTransaccion } from "@/components/EliminarTransaccion";
@@ -26,9 +26,10 @@ export default async function EditarTransaccionPage({
     .limit(1);
   if (!t || t.estado === "eliminada") notFound();
 
-  const [categorias, clientes] = await Promise.all([
+  const [categorias, clientes, cfg] = await Promise.all([
     listarCategorias(),
     listarClientes(),
+    obtenerConfig(),
   ]);
 
   return (
@@ -38,6 +39,12 @@ export default async function EditarTransaccionPage({
         categorias={categorias}
         clientes={clientes.filter((c) => c.estado === "activo")}
         hoy={hoyISO()}
+        prefs={{
+          monedaPorDefecto: cfg.monedaPorDefecto,
+          tasaCambioSugerida: cfg.tasaCambioSugerida,
+          requerirComprobante: cfg.requerirComprobante,
+          requerirClienteIngresos: cfg.requerirClienteIngresos,
+        }}
         inicial={{
           id: t.id,
           tipo: t.tipo,

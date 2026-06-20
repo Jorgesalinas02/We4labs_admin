@@ -49,7 +49,10 @@ export function AppNav({ esAdmin }: { esAdmin: boolean }) {
 }
 
 export function BotonNuevaTransaccion({ esAdmin }: { esAdmin: boolean }) {
-  if (!esAdmin) return null;
+  const pathname = usePathname();
+  // Solo aparece en Inicio y en el listado de Transacciones.
+  const visible = pathname === "/" || pathname === "/transacciones";
+  if (!esAdmin || !visible) return null;
   return (
     <Link
       href="/transacciones/nueva"

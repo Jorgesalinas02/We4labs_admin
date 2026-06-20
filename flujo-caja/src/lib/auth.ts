@@ -1,4 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { cache } from "react";
 
 export type Rol = "admin" | "visor";
 
@@ -9,28 +10,57 @@ export interface UsuarioActual {
   rol: Rol;
 }
 
-/**
- * Obtiene el usuario autenticado y su rol. El rol vive en
- * publicMetadata.role de Clerk. Por seguridad, cualquier usuario sin rol
- * explícito se trata como "visor" (sin permisos de escritura).
- */
-export async function obtenerUsuarioActual(): Promise<UsuarioActual | null> {
-  const { userId } = await auth();
-  if (!userId) return null;
-
-  const user = await currentUser();
-  if (!user) return null;
-
-  const rol = (user.publicMetadata?.role as Rol) ?? "visor";
-  const email =
-    user.primaryEmailAddress?.emailAddress ??
-    user.emailAddresses[0]?.emailAddress ??
-    "";
-  const nombre =
-    [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || null;
-
-  return { clerkId: userId, email, nombre, rol };
+// Forma de los claims personalizados del token de sesión de Clerk.
+// Se activan configurando el "session token" en el dashboard (ver README).
+interface ClaimsPersonalizados {
+  metadata?: { role?: Rol };
+  email?: string;
 }
+
+/**
+ * Obtiene el usuario autenticado y su rol. Envuelto en `cache()` para que,
+ * aunque se llame varias veces en una misma request (layout + página),
+ * se resuelva una sola vez.
+ *
+ * Camino rápido: si el token de sesión trae el rol como claim, se lee sin
+ * viaje de red. Si no, cae al fetch a Clerk (`currentUser`).
+ *
+ * Por seguridad, cualquier usuario sin rol explícito se trata como "visor".
+ */
+export const obtenerUsuarioActual = cache(
+  async (): Promise<UsuarioActual | null> => {
+    const { userId, sessionClaims } = await auth();
+    if (!userId) return null;
+
+    // Camino rápido: rol desde el claim del token (sin red).
+    const claims = sessionClaims as ClaimsPersonalizados | undefined;
+    const rolClaim = claims?.metadata?.role;
+    if (rolClaim === "admin" || rolClaim === "visor") {
+      return {
+        clerkId: userId,
+        email: claims?.email ?? "",
+        nombre: null,
+        rol: rolClaim,
+      };
+    }
+
+    // Fallback: consulta a Clerk (un viaje de red).
+    const user = await currentUser();
+    if (!user) return null;
+
+    const rol = (user.publicMetadata?.role as Rol) ?? "visor";
+    const email =
+      user.primaryEmailAddress?.emailAddress ??
+      user.emailAddresses[0]?.emailAddress ??
+      "";
+    const nombre =
+      [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+      user.username ||
+      null;
+
+    return { clerkId: userId, email, nombre, rol };
+  },
+);
 
 /** Lanza si el usuario no es Admin. Usar en cada API route de escritura. */
 export async function requireAdmin(): Promise<UsuarioActual> {

@@ -32,16 +32,25 @@ export interface ValoresIniciales {
   comprobantePathname: string | null;
 }
 
+export interface PrefsTransaccion {
+  monedaPorDefecto: "COP" | "USD";
+  tasaCambioSugerida: string | null;
+  requerirComprobante: boolean;
+  requerirClienteIngresos: boolean;
+}
+
 export function TransaccionForm({
   categorias,
   clientes,
   hoy,
   inicial,
+  prefs,
 }: {
   categorias: Categoria[];
   clientes: Cliente[];
   hoy: string;
   inicial?: ValoresIniciales;
+  prefs: PrefsTransaccion;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -49,7 +58,9 @@ export function TransaccionForm({
 
   const [tipo, setTipo] = useState<"ingreso" | "egreso">(inicial?.tipo ?? "egreso");
   const [categoriaId, setCategoriaId] = useState(inicial?.categoriaId ?? "");
-  const [moneda, setMoneda] = useState<"COP" | "USD">(inicial?.moneda ?? "COP");
+  const [moneda, setMoneda] = useState<"COP" | "USD">(
+    inicial?.moneda ?? prefs.monedaPorDefecto,
+  );
   const [clienteId, setClienteId] = useState(inicial?.clienteId ?? "");
 
   // Subida de comprobante
@@ -64,8 +75,11 @@ export function TransaccionForm({
     [categorias, tipo],
   );
   const categoriaSel = categorias.find((c) => c.id === categoriaId);
-  // El cliente es obligatorio para gastos de cliente y para ingresos de proyecto/recurrentes.
+  // El cliente es obligatorio si la config lo exige para ingresos.
+  const clienteObligatorio = prefs.requerirClienteIngresos && tipo === "ingreso";
+  // Recomendado para gastos de cliente e ingresos de proyecto/recurrentes.
   const clienteSugerido =
+    clienteObligatorio ||
     categoriaSel?.grupoGasto === "cliente" ||
     (categoriaSel?.tipo === "ingreso" && categoriaSel.grupoGasto === "na");
 
@@ -104,6 +118,16 @@ export function TransaccionForm({
     if (comprobanteUrl) {
       formData.set("comprobanteUrl", comprobanteUrl);
       formData.set("comprobantePathname", comprobantePathname);
+    }
+
+    // Validaciones rápidas según reglas configuradas (el backend también las valida).
+    if (clienteObligatorio && !clienteId) {
+      setError("Debes asociar un cliente a los ingresos.");
+      return;
+    }
+    if (prefs.requerirComprobante && !comprobanteUrl) {
+      setError("Debes adjuntar un comprobante.");
+      return;
     }
     startTransition(async () => {
       const res = inicial?.id
@@ -214,7 +238,7 @@ export function TransaccionForm({
             step="0.0001"
             min="0"
             required
-            defaultValue={inicial?.tasaCambio ?? ""}
+            defaultValue={inicial?.tasaCambio ?? prefs.tasaCambioSugerida ?? ""}
             placeholder="Ej. 4050"
             className="w-full rounded-lg border border-border bg-surface px-3 py-2.5"
           />
@@ -242,7 +266,11 @@ export function TransaccionForm({
         <label className="block text-sm font-medium mb-1">
           Cliente / Proyecto{" "}
           <span className="text-muted font-normal">
-            {clienteSugerido ? "(recomendado)" : "(opcional)"}
+            {clienteObligatorio
+              ? "(obligatorio)"
+              : clienteSugerido
+                ? "(recomendado)"
+                : "(opcional)"}
           </span>
         </label>
         <select
@@ -295,7 +323,10 @@ export function TransaccionForm({
       {/* Comprobante */}
       <div>
         <label className="block text-sm font-medium mb-1">
-          Comprobante <span className="text-muted font-normal">(opcional)</span>
+          Comprobante{" "}
+          <span className="text-muted font-normal">
+            {prefs.requerirComprobante ? "(obligatorio)" : "(opcional)"}
+          </span>
         </label>
         <input
           type="file"
