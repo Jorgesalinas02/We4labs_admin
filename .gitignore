@@ -1,0 +1,14 @@
+# OS
+.DS_Store
+
+# Editor / herramientas locales
+.claude/
+
+# Dependencias y build (también cubierto por flujo-caja/.gitignore)
+node_modules/
+.next/
+
+# Variables de entorno
+.env
+.env.*
+!.env.example
