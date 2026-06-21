@@ -7,6 +7,7 @@ import { UserButton } from "@clerk/nextjs";
 const enlaces = [
   { href: "/", label: "Inicio" },
   { href: "/transacciones", label: "Transacciones" },
+  { href: "/proyeccion", label: "Proyección" },
   { href: "/clientes", label: "Clientes" },
 ];
 

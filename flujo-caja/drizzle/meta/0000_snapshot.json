@@ -1,5 +1,5 @@
 {
-  "id": "5ee260bc-474e-4a31-8b1d-e7f71e90fbfc",
+  "id": "de9d9ae0-3e9f-4420-b4c5-ca8059469a8a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -28,19 +28,40 @@
           "primaryKey": false,
           "notNull": true
         },
-        "grupo_gasto": {
-          "name": "grupo_gasto",
-          "type": "grupo_gasto",
+        "categoria_madre_id": {
+          "name": "categoria_madre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pide_cliente": {
+          "name": "pide_cliente",
+          "type": "pide_cliente",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
-          "default": "'na'"
+          "default": "'no'"
+        },
+        "es_costo_directo": {
+          "name": "es_costo_directo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "descripcion_dummies": {
           "name": "descripcion_dummies",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "''"
+        },
+        "orden": {
+          "name": "orden",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "activa": {
           "name": "activa",
@@ -51,7 +72,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "categorias_categoria_madre_id_categorias_id_fk": {
+          "name": "categorias_categoria_madre_id_categorias_id_fk",
+          "tableFrom": "categorias",
+          "tableTo": "categorias",
+          "columnsFrom": [
+            "categoria_madre_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -131,12 +166,54 @@
           "primaryKey": false,
           "notNull": false
         },
-        "umbral_alerta_cop": {
-          "name": "umbral_alerta_cop",
+        "caja_minima_cop": {
+          "name": "caja_minima_cop",
           "type": "numeric(15, 2)",
           "primaryKey": false,
           "notNull": true,
           "default": "'0'"
+        },
+        "horizonte_proyeccion_semanas": {
+          "name": "horizonte_proyeccion_semanas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 8
+        },
+        "moneda_por_defecto": {
+          "name": "moneda_por_defecto",
+          "type": "moneda",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'COP'"
+        },
+        "tasa_cambio_sugerida": {
+          "name": "tasa_cambio_sugerida",
+          "type": "numeric(12, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "requerir_comprobante": {
+          "name": "requerir_comprobante",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "requerir_cliente_ingresos": {
+          "name": "requerir_cliente_ingresos",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "dias_alerta_inactividad": {
+          "name": "dias_alerta_inactividad",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "zona_horaria": {
           "name": "zona_horaria",
@@ -230,6 +307,107 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.obligaciones_tributarias": {
+      "name": "obligaciones_tributarias",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "periodicidad": {
+          "name": "periodicidad",
+          "type": "periodicidad",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'mensual'"
+        },
+        "proximo_vencimiento": {
+          "name": "proximo_vencimiento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dias_anticipacion": {
+          "name": "dias_anticipacion",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 5
+        },
+        "monto_estimado_cop": {
+          "name": "monto_estimado_cop",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estado": {
+          "name": "estado",
+          "type": "estado_obligacion",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pendiente'"
+        },
+        "transaccion_id": {
+          "name": "transaccion_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nota": {
+          "name": "nota",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "activa": {
+          "name": "activa",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "obligaciones_tributarias_transaccion_id_transacciones_id_fk": {
+          "name": "obligaciones_tributarias_transaccion_id_transacciones_id_fk",
+          "tableFrom": "obligaciones_tributarias",
+          "tableTo": "transacciones",
+          "columnsFrom": [
+            "transaccion_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.transacciones": {
       "name": "transacciones",
       "schema": "",
@@ -316,6 +494,27 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "es_recurrente": {
+          "name": "es_recurrente",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "frecuencia": {
+          "name": "frecuencia",
+          "type": "frecuencia",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "es_proyectada": {
+          "name": "es_proyectada",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "creado_por": {
           "name": "creado_por",
@@ -450,6 +649,14 @@
         "inactivo"
       ]
     },
+    "public.estado_obligacion": {
+      "name": "estado_obligacion",
+      "schema": "public",
+      "values": [
+        "pendiente",
+        "pagada"
+      ]
+    },
     "public.estado_transaccion": {
       "name": "estado_transaccion",
       "schema": "public",
@@ -466,17 +673,13 @@
         "inactivo"
       ]
     },
-    "public.grupo_gasto": {
-      "name": "grupo_gasto",
+    "public.frecuencia": {
+      "name": "frecuencia",
       "schema": "public",
       "values": [
-        "nomina",
-        "operativo",
-        "cliente",
-        "admin",
-        "marketing",
-        "otro",
-        "na"
+        "mensual",
+        "quincenal",
+        "semanal"
       ]
     },
     "public.moneda": {
@@ -485,6 +688,26 @@
       "values": [
         "COP",
         "USD"
+      ]
+    },
+    "public.periodicidad": {
+      "name": "periodicidad",
+      "schema": "public",
+      "values": [
+        "mensual",
+        "bimestral",
+        "cuatrimestral",
+        "anual",
+        "otra"
+      ]
+    },
+    "public.pide_cliente": {
+      "name": "pide_cliente",
+      "schema": "public",
+      "values": [
+        "si",
+        "opcional",
+        "no"
       ]
     },
     "public.rol": {

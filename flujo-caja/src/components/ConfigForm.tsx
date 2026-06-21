@@ -7,11 +7,11 @@ import { guardarConfig } from "@/app/actions/config";
 export interface ConfigInicial {
   saldoInicialCop: string;
   saldoInicialFecha: string | null;
-  umbralAlertaCop: string;
+  cajaMinimaCop: string;
+  horizonteProyeccionSemanas: number;
   monedaPorDefecto: "COP" | "USD";
   tasaCambioSugerida: string | null;
   requerirComprobante: boolean;
-  requerirClienteIngresos: boolean;
   diasAlertaInactividad: number;
 }
 
@@ -94,19 +94,36 @@ export function ConfigForm({ inicial }: { inicial: ConfigInicial }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Umbral de alerta de caja baja (COP)
-          </label>
+          <label className="block text-sm font-medium mb-1">Caja mínima (COP)</label>
           <input
-            name="umbralAlertaCop"
+            name="cajaMinimaCop"
             type="number"
             step="0.01"
             min="0"
-            defaultValue={inicial.umbralAlertaCop}
+            defaultValue={inicial.cajaMinimaCop}
             className="w-full rounded-lg border border-border px-3 py-2.5"
           />
           <p className="text-xs text-muted mt-1">
-            El dashboard avisa si el saldo cae por debajo de este valor. 0 = sin alerta.
+            Tu colchón de liquidez. Un colchón sano suele equivaler a varios meses de
+            gastos fijos (nómina + operativos). El saldo se pinta rojo si baja de aquí,
+            amarillo si está cerca, verde si está cómodo. 0 = sin alerta.
+          </p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Horizonte de proyección (semanas)
+          </label>
+          <input
+            name="horizonteProyeccionSemanas"
+            type="number"
+            min="1"
+            max="26"
+            step="1"
+            defaultValue={inicial.horizonteProyeccionSemanas}
+            className="w-full rounded-lg border border-border px-3 py-2.5"
+          />
+          <p className="text-xs text-muted mt-1">
+            Cuántas semanas hacia adelante muestra el Flujo de Caja Proyectado (por defecto 8).
           </p>
         </div>
       </section>
@@ -156,12 +173,10 @@ export function ConfigForm({ inicial }: { inicial: ConfigInicial }) {
           label="Exigir comprobante en cada transacción"
           ayuda="No deja guardar sin adjuntar foto o PDF del soporte."
         />
-        <Toggle
-          name="requerirClienteIngresos"
-          defaultChecked={inicial.requerirClienteIngresos}
-          label="Exigir cliente en los ingresos"
-          ayuda="Obliga a asociar un cliente cuando el movimiento es un ingreso."
-        />
+        <p className="text-xs text-muted">
+          La exigencia de cliente ahora la define cada categoría (madre) según su
+          configuración, no un interruptor global.
+        </p>
         <div>
           <label className="block text-sm font-medium mb-1">
             Recordatorio por inactividad (días)
