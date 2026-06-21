@@ -2,7 +2,7 @@ import Link from "next/link";
 import { obtenerUsuarioActual } from "@/lib/auth";
 import {
   listarTransacciones,
-  listarCategorias,
+  listarMadres,
   listarClientes,
   type FiltrosTransaccion,
 } from "@/lib/queries";
@@ -25,15 +25,15 @@ export default async function TransaccionesPage({
 
   const filtros: FiltrosTransaccion = {
     tipo: sp.tipo === "ingreso" || sp.tipo === "egreso" ? sp.tipo : undefined,
-    categoriaId: limpiar(sp.categoria),
+    madreId: limpiar(sp.categoria),
     clienteId: limpiar(sp.cliente),
     desde: limpiar(sp.desde),
     hasta: limpiar(sp.hasta),
   };
 
-  const [movimientos, categorias, clientes] = await Promise.all([
+  const [movimientos, madres, clientes] = await Promise.all([
     listarTransacciones(filtros),
-    listarCategorias(),
+    listarMadres(),
     listarClientes(),
   ]);
 
@@ -81,7 +81,7 @@ export default async function TransaccionesPage({
           className="rounded-lg border border-border bg-surface px-2 py-2 text-sm"
         >
           <option value="">Todas las categorías</option>
-          {categorias.map((c) => (
+          {madres.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nombre}
             </option>

@@ -1,9 +1,18 @@
 # Flujo de Caja · We4Labs
 
-Sistema interno de gestión de flujo de caja. Implementa la **Fase 1** del PRD
-(`../PRD_Sistema_Flujo_de_Caja.md`): registro manual de ingresos/egresos
-multi-moneda, dashboard, clientes, reportes exportables, auditoría inmutable y
-control de acceso por roles.
+Sistema interno de gestión de flujo de caja. Implementa la **Fase 1 (PRD v2.0)**
+(`../PRD_Sistema_Flujo_de_Caja_mejoras.md`):
+
+- Registro de ingresos/egresos multi-moneda con **categorías a dos niveles**
+  (categoría madre + subcategoría) y campo **"¿Se repite?"** (recurrencia).
+- **Flujo de Caja Proyectado** a 8 semanas (configurable) con semáforo de caja.
+- **Calendario tributario**: obligaciones con recordatorios; marcar pagada genera
+  el egreso automáticamente.
+- **Caja mínima** configurable con semáforo (rojo/amarillo/verde) en dashboard
+  y proyección.
+- Dashboard, clientes (rentabilidad = ingresos − costos directos), reportes
+  exportables (con columnas madre/subcategoría), auditoría inmutable y control
+  de acceso por roles (sistema cerrado por invitación).
 
 ## Stack
 

@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { transacciones } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { obtenerUsuarioActual } from "@/lib/auth";
-import { listarCategorias, listarClientes, obtenerConfig } from "@/lib/queries";
+import { listarCategoriasArbol, listarClientes, obtenerConfig } from "@/lib/queries";
 import { hoyISO } from "@/lib/dates";
 import { TransaccionForm } from "@/components/TransaccionForm";
 import { EliminarTransaccion } from "@/components/EliminarTransaccion";
@@ -26,8 +26,8 @@ export default async function EditarTransaccionPage({
     .limit(1);
   if (!t || t.estado === "eliminada") notFound();
 
-  const [categorias, clientes, cfg] = await Promise.all([
-    listarCategorias(),
+  const [arbol, clientes, cfg] = await Promise.all([
+    listarCategoriasArbol(),
     listarClientes(),
     obtenerConfig(),
   ]);
@@ -36,14 +36,13 @@ export default async function EditarTransaccionPage({
     <div className="max-w-lg mx-auto">
       <h1 className="text-lg font-semibold mb-4">Editar transacción</h1>
       <TransaccionForm
-        categorias={categorias}
+        arbol={arbol}
         clientes={clientes.filter((c) => c.estado === "activo")}
         hoy={hoyISO()}
         prefs={{
           monedaPorDefecto: cfg.monedaPorDefecto,
           tasaCambioSugerida: cfg.tasaCambioSugerida,
           requerirComprobante: cfg.requerirComprobante,
-          requerirClienteIngresos: cfg.requerirClienteIngresos,
         }}
         inicial={{
           id: t.id,
@@ -58,6 +57,8 @@ export default async function EditarTransaccionPage({
           metodoPago: t.metodoPago,
           comprobanteUrl: t.comprobanteUrl,
           comprobantePathname: t.comprobantePathname,
+          esRecurrente: t.esRecurrente,
+          frecuencia: t.frecuencia,
         }}
       />
       <EliminarTransaccion id={t.id} />

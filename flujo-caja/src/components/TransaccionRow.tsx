@@ -12,6 +12,7 @@ export interface TransaccionLista {
   categoriaNombre: string;
   clienteNombre: string | null;
   comprobanteUrl: string | null;
+  esRecurrente?: boolean;
 }
 
 export function TransaccionRow({
@@ -32,6 +33,7 @@ export function TransaccionRow({
         <p className="text-xs text-muted truncate">
           {t.categoriaNombre}
           {t.clienteNombre ? ` · ${t.clienteNombre}` : ""} · {t.fecha}
+          {t.esRecurrente ? " · 🔁" : ""}
           {t.comprobanteUrl ? " · 📎" : ""}
         </p>
       </div>

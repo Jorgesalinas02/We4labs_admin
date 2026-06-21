@@ -2,24 +2,31 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { transacciones, config } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { transacciones, config, categorias } from "@/db/schema";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { requireAdmin, RespuestaError } from "@/lib/auth";
 import { registrarAuditoria } from "@/lib/audit";
 import { transaccionSchema } from "@/lib/validations";
 import { calcularMontoCop } from "@/lib/money";
 
-// Reglas de captura configurables (requerir comprobante / cliente en ingresos).
-async function validarReglasCaptura(
-  d: { tipo: string; clienteId?: string | null; comprobanteUrl?: string | null },
-): Promise<string | null> {
+// Reglas de captura: comprobante (config) + cliente según la categoría (pideCliente).
+async function validarReglasCaptura(d: {
+  tipo: string;
+  categoriaId: string;
+  clienteId?: string | null;
+  comprobanteUrl?: string | null;
+}): Promise<string | null> {
   const [cfg] = await db.select().from(config).where(eq(config.id, 1)).limit(1);
-  if (!cfg) return null;
-  if (cfg.requerirComprobante && !d.comprobanteUrl) {
+  if (cfg?.requerirComprobante && !d.comprobanteUrl) {
     return "La configuración exige adjuntar un comprobante.";
   }
-  if (cfg.requerirClienteIngresos && d.tipo === "ingreso" && !d.clienteId) {
-    return "La configuración exige asociar un cliente a los ingresos.";
+  const [cat] = await db
+    .select({ pideCliente: categorias.pideCliente })
+    .from(categorias)
+    .where(eq(categorias.id, d.categoriaId))
+    .limit(1);
+  if (cat?.pideCliente === "si" && !d.clienteId) {
+    return "Esta categoría exige asociar un cliente.";
   }
   return null;
 }
@@ -46,6 +53,9 @@ function leerFormData(formData: FormData) {
     metodoPago: formData.get("metodoPago") || null,
     comprobanteUrl: comprobanteUrl ? String(comprobanteUrl) : null,
     comprobantePathname: comprobantePathname ? String(comprobantePathname) : null,
+    esRecurrente: formData.get("esRecurrente") === "on",
+    frecuencia: formData.get("frecuencia") || null,
+    esProyectada: formData.get("esProyectada") === "on",
   };
 }
 
@@ -78,6 +88,9 @@ export async function crearTransaccion(formData: FormData): Promise<ActionResult
         metodoPago: d.metodoPago || null,
         comprobanteUrl: d.comprobanteUrl || null,
         comprobantePathname: d.comprobantePathname || null,
+        esRecurrente: d.esRecurrente,
+        frecuencia: d.esRecurrente ? d.frecuencia : null,
+        esProyectada: d.esProyectada,
         creadoPor: usuario.clerkId,
       })
       .returning({ id: transacciones.id });
@@ -92,6 +105,7 @@ export async function crearTransaccion(formData: FormData): Promise<ActionResult
 
     revalidatePath("/");
     revalidatePath("/transacciones");
+    revalidatePath("/proyeccion");
     return { ok: true, id: creada.id };
   } catch (e) {
     return manejarError(e);
@@ -138,6 +152,9 @@ export async function editarTransaccion(
         metodoPago: d.metodoPago || null,
         comprobanteUrl: d.comprobanteUrl || null,
         comprobantePathname: d.comprobantePathname || null,
+        esRecurrente: d.esRecurrente,
+        frecuencia: d.esRecurrente ? d.frecuencia : null,
+        esProyectada: d.esProyectada,
       })
       .where(eq(transacciones.id, id));
 
@@ -152,7 +169,64 @@ export async function editarTransaccion(
 
     revalidatePath("/");
     revalidatePath("/transacciones");
+    revalidatePath("/proyeccion");
     return { ok: true, id };
+  } catch (e) {
+    return manejarError(e);
+  }
+}
+
+/**
+ * Crea una fila "esperada" (proyectada) para el Flujo de Caja Proyectado.
+ * No es una transacción real: no afecta el saldo, solo la proyección.
+ */
+export async function crearEsperada(formData: FormData): Promise<ActionResult> {
+  try {
+    const usuario = await requireAdmin();
+    const tipo = formData.get("tipo");
+    const monto = Number(formData.get("montoCop"));
+    const fecha = String(formData.get("fecha") ?? "");
+    const descripcion = String(formData.get("descripcion") ?? "").trim();
+    if (tipo !== "ingreso" && tipo !== "egreso") {
+      return { ok: false, error: "Tipo inválido" };
+    }
+    if (!monto || monto <= 0) return { ok: false, error: "Monto inválido" };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { ok: false, error: "Fecha inválida" };
+    if (!descripcion) return { ok: false, error: "Agrega una descripción" };
+
+    // Categoría comodín: usa cualquier subcategoría del tipo para satisfacer el FK.
+    const [cat] = await db
+      .select({ id: categorias.id })
+      .from(categorias)
+      .where(and(eq(categorias.tipo, tipo), isNotNull(categorias.categoriaMadreId)))
+      .limit(1);
+    if (!cat) return { ok: false, error: "No hay categorías; ejecuta el seed." };
+
+    const [creada] = await db
+      .insert(transacciones)
+      .values({
+        tipo,
+        categoriaId: cat.id,
+        moneda: "COP",
+        montoOriginal: monto.toFixed(2),
+        tasaCambio: "1",
+        montoCop: monto.toFixed(2),
+        fecha,
+        descripcion,
+        esProyectada: true,
+        creadoPor: usuario.clerkId,
+      })
+      .returning({ id: transacciones.id });
+
+    await registrarAuditoria({
+      usuario,
+      accion: "crear",
+      entidad: "esperada",
+      entidadId: creada.id,
+      detalle: `Fila esperada: ${descripcion}`,
+    });
+    revalidatePath("/proyeccion");
+    return { ok: true, id: creada.id };
   } catch (e) {
     return manejarError(e);
   }
@@ -186,6 +260,7 @@ export async function eliminarTransaccion(id: string): Promise<ActionResult> {
 
     revalidatePath("/");
     revalidatePath("/transacciones");
+    revalidatePath("/proyeccion");
     return { ok: true, id };
   } catch (e) {
     return manejarError(e);

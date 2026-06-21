@@ -10,6 +10,8 @@ import {
   boolean,
   jsonb,
   integer,
+  foreignKey,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
@@ -24,20 +26,28 @@ export const tipoRelacionEnum = pgEnum("tipo_relacion", [
 ]);
 export const estadoClienteEnum = pgEnum("estado_cliente", ["activo", "inactivo"]);
 export const tipoMovimientoEnum = pgEnum("tipo_movimiento", ["ingreso", "egreso"]);
-// Grupo de gasto: permite agrupar el dashboard aunque se creen categorías nuevas.
-export const grupoGastoEnum = pgEnum("grupo_gasto", [
-  "nomina",
-  "operativo",
-  "cliente",
-  "admin",
-  "marketing",
-  "otro",
-  "na", // no aplica (categorías de ingreso)
-]);
+// Si una categoría madre exige, sugiere o no aplica asociar cliente.
+export const pideClienteEnum = pgEnum("pide_cliente", ["si", "opcional", "no"]);
 export const monedaEnum = pgEnum("moneda", ["COP", "USD"]);
+export const frecuenciaEnum = pgEnum("frecuencia", [
+  "mensual",
+  "quincenal",
+  "semanal",
+]);
 export const estadoTransaccionEnum = pgEnum("estado_transaccion", [
   "activa",
   "eliminada",
+]);
+export const periodicidadEnum = pgEnum("periodicidad", [
+  "mensual",
+  "bimestral",
+  "cuatrimestral",
+  "anual",
+  "otra",
+]);
+export const estadoObligacionEnum = pgEnum("estado_obligacion", [
+  "pendiente",
+  "pagada",
 ]);
 export const accionAuditoriaEnum = pgEnum("accion_auditoria", [
   "login",
@@ -72,44 +82,80 @@ export const clientes = pgTable("clientes", {
 });
 
 // ---------------------------------------------------------------------------
-// Categorías (predefinidas + las que agregue un Admin)
+// Categorías a dos niveles (madre + subcategoría, auto-referencia)
+//   - categoriaMadreId NULL  -> es una Categoría madre
+//   - categoriaMadreId valor -> es una Subcategoría de esa madre
+//   - pideCliente aplica en la madre (si/opcional/no) y la heredan sus subs
 // ---------------------------------------------------------------------------
-export const categorias = pgTable("categorias", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  nombre: text("nombre").notNull(),
-  tipo: tipoMovimientoEnum("tipo").notNull(),
-  grupoGasto: grupoGastoEnum("grupo_gasto").notNull().default("na"),
-  descripcionDummies: text("descripcion_dummies").notNull(),
-  activa: boolean("activa").notNull().default(true),
-});
+export const categorias = pgTable(
+  "categorias",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    nombre: text("nombre").notNull(),
+    tipo: tipoMovimientoEnum("tipo").notNull(),
+    categoriaMadreId: uuid("categoria_madre_id"),
+    pideCliente: pideClienteEnum("pide_cliente").notNull().default("no"),
+    // Marca la madre "Costos directos" para el cálculo de rentabilidad por cliente.
+    esCostoDirecto: boolean("es_costo_directo").notNull().default(false),
+    descripcionDummies: text("descripcion_dummies").notNull().default(""),
+    orden: integer("orden").notNull().default(0),
+    activa: boolean("activa").notNull().default(true),
+  },
+  (t) => ({
+    madreFk: foreignKey({
+      columns: [t.categoriaMadreId],
+      foreignColumns: [t.id],
+    }),
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // Transacciones (NUMERIC para dinero — nunca float; soft delete)
+//   - categoriaId apunta a una SUBcategoría
+//   - esProyectada distingue una fila "esperada" de una transacción real
 // ---------------------------------------------------------------------------
 export const transacciones = pgTable("transacciones", {
   id: uuid("id").primaryKey().defaultRandom(),
   tipo: tipoMovimientoEnum("tipo").notNull(),
   categoriaId: uuid("categoria_id")
     .notNull()
-    .references(() => categorias.id),
+    .references((): AnyPgColumn => categorias.id),
   clienteId: uuid("cliente_id").references(() => clientes.id),
   moneda: monedaEnum("moneda").notNull().default("COP"),
-  // Monto en la moneda original tal como entró/salió de la cuenta.
   montoOriginal: numeric("monto_original", { precision: 15, scale: 2 }).notNull(),
-  // Tasa de cambio a COP (1 si moneda = COP).
   tasaCambio: numeric("tasa_cambio", { precision: 12, scale: 4 })
     .notNull()
     .default("1"),
-  // Monto normalizado en COP — base de todos los cálculos del dashboard.
   montoCop: numeric("monto_cop", { precision: 15, scale: 2 }).notNull(),
   fecha: date("fecha").notNull(),
   descripcion: text("descripcion").notNull(),
   metodoPago: varchar("metodo_pago", { length: 40 }),
   comprobanteUrl: text("comprobante_url"),
   comprobantePathname: text("comprobante_pathname"),
+  // --- Recurrencia / proyección ---
+  esRecurrente: boolean("es_recurrente").notNull().default(false),
+  frecuencia: frecuenciaEnum("frecuencia"),
+  esProyectada: boolean("es_proyectada").notNull().default(false),
   creadoPor: text("creado_por").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   estado: estadoTransaccionEnum("estado").notNull().default("activa"),
+});
+
+// ---------------------------------------------------------------------------
+// Obligaciones tributarias (calendario)
+// ---------------------------------------------------------------------------
+export const obligacionesTributarias = pgTable("obligaciones_tributarias", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  nombre: text("nombre").notNull(),
+  periodicidad: periodicidadEnum("periodicidad").notNull().default("mensual"),
+  proximoVencimiento: date("proximo_vencimiento"),
+  diasAnticipacion: integer("dias_anticipacion").notNull().default(5),
+  montoEstimadoCop: numeric("monto_estimado_cop", { precision: 15, scale: 2 }),
+  estado: estadoObligacionEnum("estado").notNull().default("pendiente"),
+  transaccionId: uuid("transaccion_id").references(() => transacciones.id),
+  nota: text("nota"),
+  activa: boolean("activa").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // ---------------------------------------------------------------------------
@@ -117,24 +163,25 @@ export const transacciones = pgTable("transacciones", {
 // ---------------------------------------------------------------------------
 export const config = pgTable("config", {
   id: integer("id").primaryKey().default(1),
-  // --- Saldo / alertas ---
   saldoInicialCop: numeric("saldo_inicial_cop", { precision: 15, scale: 2 })
     .notNull()
     .default("0"),
   saldoInicialFecha: date("saldo_inicial_fecha"),
-  umbralAlertaCop: numeric("umbral_alerta_cop", { precision: 15, scale: 2 })
+  // Caja mínima: colchón de liquidez de referencia (antes "umbral de alerta").
+  cajaMinimaCop: numeric("caja_minima_cop", { precision: 15, scale: 2 })
     .notNull()
     .default("0"),
+  horizonteProyeccionSemanas: integer("horizonte_proyeccion_semanas")
+    .notNull()
+    .default(8),
   // --- Preferencias del formulario de transacciones ---
   monedaPorDefecto: monedaEnum("moneda_por_defecto").notNull().default("COP"),
-  // Tasa USD→COP sugerida para prellenar el formulario (editable por transacción).
   tasaCambioSugerida: numeric("tasa_cambio_sugerida", { precision: 12, scale: 4 }),
   // --- Reglas de captura ---
   requerirComprobante: boolean("requerir_comprobante").notNull().default(false),
   requerirClienteIngresos: boolean("requerir_cliente_ingresos")
     .notNull()
     .default(false),
-  // Días sin registrar transacciones tras los que se recordará (0 = sin recordatorio).
   diasAlertaInactividad: integer("dias_alerta_inactividad").notNull().default(0),
   zonaHoraria: text("zona_horaria").notNull().default("America/Bogota"),
 });
@@ -160,3 +207,4 @@ export type NuevaTransaccion = typeof transacciones.$inferInsert;
 export type Cliente = typeof clientes.$inferSelect;
 export type Categoria = typeof categorias.$inferSelect;
 export type Usuario = typeof usuarios.$inferSelect;
+export type ObligacionTributaria = typeof obligacionesTributarias.$inferSelect;

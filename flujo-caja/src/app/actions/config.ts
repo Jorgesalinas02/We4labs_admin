@@ -14,11 +14,11 @@ export async function guardarConfig(formData: FormData): Promise<ActionResult> {
     const parsed = configSchema.safeParse({
       saldoInicialCop: formData.get("saldoInicialCop"),
       saldoInicialFecha: formData.get("saldoInicialFecha") || null,
-      umbralAlertaCop: formData.get("umbralAlertaCop") || 0,
+      cajaMinimaCop: formData.get("cajaMinimaCop") || 0,
+      horizonteProyeccionSemanas: formData.get("horizonteProyeccionSemanas") || 8,
       monedaPorDefecto: formData.get("monedaPorDefecto") || "COP",
       tasaCambioSugerida: formData.get("tasaCambioSugerida") || null,
       requerirComprobante: formData.get("requerirComprobante") === "on",
-      requerirClienteIngresos: formData.get("requerirClienteIngresos") === "on",
       diasAlertaInactividad: formData.get("diasAlertaInactividad") || 0,
     });
     if (!parsed.success) {
@@ -29,12 +29,12 @@ export async function guardarConfig(formData: FormData): Promise<ActionResult> {
     const valores = {
       saldoInicialCop: d.saldoInicialCop.toFixed(2),
       saldoInicialFecha: d.saldoInicialFecha || null,
-      umbralAlertaCop: d.umbralAlertaCop.toFixed(2),
+      cajaMinimaCop: d.cajaMinimaCop.toFixed(2),
+      horizonteProyeccionSemanas: d.horizonteProyeccionSemanas,
       monedaPorDefecto: d.monedaPorDefecto,
       tasaCambioSugerida:
         d.tasaCambioSugerida != null ? d.tasaCambioSugerida.toFixed(4) : null,
       requerirComprobante: d.requerirComprobante,
-      requerirClienteIngresos: d.requerirClienteIngresos,
       diasAlertaInactividad: d.diasAlertaInactividad,
     };
 
@@ -52,6 +52,7 @@ export async function guardarConfig(formData: FormData): Promise<ActionResult> {
     });
     revalidatePath("/");
     revalidatePath("/configuracion");
+    revalidatePath("/proyeccion");
     return { ok: true };
   } catch (e) {
     if (e instanceof RespuestaError) return { ok: false, error: e.message };

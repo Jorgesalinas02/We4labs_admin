@@ -19,7 +19,8 @@ export default async function ClienteDetallePage({
 
   const detalle = await obtenerDetalleCliente(id);
   if (!detalle) notFound();
-  const { cliente, ingresado, gastado, rentabilidadCaja, movimientos } = detalle;
+  const { cliente, ingresado, costosDirectos, otrosGastos, rentabilidad, movimientos } =
+    detalle;
 
   return (
     <div className="space-y-5">
@@ -36,23 +37,24 @@ export default async function ClienteDetallePage({
           <p className="text-sm font-bold text-ingreso">{formatMoneda(ingresado)}</p>
         </div>
         <div className="rounded-xl bg-surface border border-border p-3">
-          <p className="text-xs text-muted">Gastado</p>
-          <p className="text-sm font-bold text-egreso">{formatMoneda(gastado)}</p>
+          <p className="text-xs text-muted">Costos directos</p>
+          <p className="text-sm font-bold text-egreso">{formatMoneda(costosDirectos)}</p>
         </div>
         <div className="rounded-xl bg-surface border border-border p-3">
-          <p className="text-xs text-muted">Neto (caja)</p>
+          <p className="text-xs text-muted">Rentabilidad</p>
           <p
             className={`text-sm font-bold ${
-              rentabilidadCaja >= 0 ? "text-ingreso" : "text-egreso"
+              rentabilidad >= 0 ? "text-ingreso" : "text-egreso"
             }`}
           >
-            {formatMoneda(rentabilidadCaja)}
+            {formatMoneda(rentabilidad)}
           </p>
         </div>
       </section>
       <p className="text-xs text-muted -mt-2">
-        * Rentabilidad de caja (lo que entró menos lo que salió). No es utilidad
-        contable: un anticipo entra como ingreso aunque el trabajo no se haya entregado.
+        * Rentabilidad = ingresos − costos directos del cliente. Otros gastos asociados:{" "}
+        {formatMoneda(otrosGastos)} (no se descuentan aquí). Es flujo de caja, no
+        utilidad contable.
       </p>
 
       {esAdmin && (

@@ -1,5 +1,6 @@
 import { toZonedTime } from "date-fns-tz";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
+import { es } from "date-fns/locale";
 
 // Zona horaria fija del negocio. Los cortes de mes se calculan en Bogotá
 // para que los comparativos "mes actual vs anterior" sean correctos.
@@ -45,5 +46,5 @@ export function hoyISO(): string {
 /** Etiqueta legible de mes, ej. "junio 2026". */
 export function etiquetaMes(offset = 0): string {
   const d = subMonths(ahoraEnBogota(), offset);
-  return format(d, "MMMM yyyy");
+  return format(d, "MMMM yyyy", { locale: es });
 }

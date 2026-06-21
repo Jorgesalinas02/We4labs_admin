@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const tipo = p.get("tipo");
   const filtros: FiltrosTransaccion = {
     tipo: tipo === "ingreso" || tipo === "egreso" ? tipo : undefined,
-    categoriaId: p.get("categoria") || undefined,
+    madreId: p.get("categoria") || undefined,
     clienteId: p.get("cliente") || undefined,
     desde: p.get("desde") || undefined,
     hasta: p.get("hasta") || undefined,
@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
   const encabezado = [
     "Fecha",
     "Tipo",
-    "Categoría",
+    "Categoría madre",
+    "Subcategoría",
     "Cliente",
     "Descripción",
     "Moneda",
@@ -38,6 +39,7 @@ export async function GET(req: NextRequest) {
     "Tasa cambio",
     "Monto COP",
     "Método de pago",
+    "Recurrente",
   ];
 
   // Usa ; como separador (Excel en español lo prefiere) y BOM para acentos.
@@ -47,6 +49,7 @@ export async function GET(req: NextRequest) {
       [
         f.fecha,
         f.tipo,
+        f.madreNombre ?? "",
         f.categoriaNombre,
         f.clienteNombre ?? "",
         f.descripcion,
@@ -55,6 +58,7 @@ export async function GET(req: NextRequest) {
         f.tasaCambio,
         f.montoCop,
         f.metodoPago ?? "",
+        f.esRecurrente ? `Sí (${f.frecuencia ?? ""})` : "No",
       ]
         .map(csvCampo)
         .join(";"),
